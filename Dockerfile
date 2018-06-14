@@ -43,6 +43,50 @@ with support for geographic objects" \
       # io.openshift.expose-services="8080:http" \
       io.openshift.tags="builder,sql,postgresql,postgis"
 
+# IMPORTANT NOTE ON OPENSHIFT ORIGIN USER:
+#   On OpenShift Origin, this image runs as a user created by OpenShift Origin
+#   rather than the one set in this Dockerfile. The ID of this user is long
+#   (e.g. 1027270000, 1003330000). In order to sccessfully run the image built
+#   by this Dockerfile on OpenShift Origin, the correct user ID must be assigned
+#   to argument variable OPENSHIFT_ORIGIN_USER_ID in this Dockerfile.
+# 
+#   If the OpenShift pod that ran the image built by this Dockerfile ran
+#   successfully, the ID of the user it ran as matched the value of argument
+#   variable OPENSHIFT_ORIGIN_USER_ID and nothing needs to be done. If it failed
+#   to run, it will have have a status like "CrashLoopBackOff" or possibly
+#   "Error" because it was unable to access a file in /var/lib/postgres/data
+#   (likely postgresql.conf) (this will be shown in the logs) as the user it ran
+#   as did not have permission to.
+# 
+#   To get this user ID, an OpenShift application must be created with an image
+#   built by this Dockerfile and a S2I source repository that includes a run
+#   script which prints the output of command `id -u`. (The command to do this
+#   simply invokes a new application using the respective base S2I scripts
+#   repository for this project. This command can be found at
+#   https://hub.docker.com/r/adrianbartyczak/openshift-postgresql-10-postgis/).
+#   Once the application has been created, the output of command `id -u` should
+#   be checked for in the logs of the pod. This output is the ID of the user
+#   the OpenShift pod ran as. The image built by the packaging library of this
+#   Dockerfile must then be rebuilt with option
+#   `--build-arg OPENSHIFT_ORIGIN_USER_ID=<id>`, pushed to Docker Hub and used
+#   to invoke a new application.
+# 
+#   Note that the user OpenShift Origin pods run as is consistent across builds
+#   and new applications but does change across datacenters (possibly across
+#   nodes?).
+
+# NOTE ON THE DEFAULT USER CREATED BY THE BASE CENTOS7 IMAGE:
+#   The base-centos7 image creates a default user with name "default" and ID
+#   1001 but it can only be used by a container of this image when it is
+#   run with Docker. The entry for this user in /etc/passwd is the following:
+#       default:x:1001:0:Default Application User:/opt/app-root/src:/sbin/nologin
+#   To maintain run consistency between Docker and OpenShift Origin, this
+#   Dockerfile runs the container as user with ID assigned to argument variable
+#   OPENSHIFT_ORIGIN_USER_ID.
+
+# Set the OpenShift Origin User ID default value.
+ARG OPENSHIFT_ORIGIN_USER_ID=1027270000
+
 # ============================================
 #   Add OpenShift S2I build scripts to the image (just for reference; see note)
 # ============================================
@@ -72,19 +116,8 @@ with support for geographic objects" \
 #   Set up the user files and directories for the container
 # ============================================
 
-# NOTE ON OPENSHIFT ORIGIN CONTAINER USER:
-#   This image runs as the user created by OpenShift Origin when run in
-#   OpenShift Origin rather than the one set in this container. The ID of this
-#   user is 1027270000 but it does not exist in the sytem and has no entry in
-#   /etc/passwd. The base-centos7 image already creates a default user with name
-#   "default" and ID 1001 but it can only be used in a container run with
-#   docker. The entry for this user in /etc/passwd is the following:
-#       default:x:1001:0:Default Application User:/opt/app-root/src:/sbin/nologin
-#   To maintain run consistency between Docker and OpenShift Origin, this
-#   Dockerfile runs the container as user with ID 1027270000
-
-# Make user 1027270000 own /opt/app-root.
-RUN chown -R 1027270000:1027270000 /opt/app-root
+# Make user OPENSHIFT_ORIGIN_USER_ID own /opt/app-root.
+RUN chown -R $OPENSHIFT_ORIGIN_USER_ID:$OPENSHIFT_ORIGIN_USER_ID /opt/app-root
 
 # ============================================
 #   Set up PostgreSQL
@@ -140,12 +173,14 @@ USER root
 # The user that runs the PostgreSQL server must be the owner of
 # /var/lib/postgres/data. This is for the reason of having permissions to write
 # to files in the directory.
-RUN chown -R 1027270000:1027270000 /var/lib/postgres/data
+RUN chown -R $OPENSHIFT_ORIGIN_USER_ID:$OPENSHIFT_ORIGIN_USER_ID \
+			/var/lib/postgres/data
 
 # In order for PostgreSQL to bind addresses when the server is started by the
 # default user, the default user must have write permissions on
 # /var/run/postgresql.
-RUN chown 1027270000:1027270000 /var/run/postgresql
+RUN chown $OPENSHIFT_ORIGIN_USER_ID:$OPENSHIFT_ORIGIN_USER_ID \
+			/var/run/postgresql
 
 # For some reason, the base centos7 images includes binary /usr/bin/psql,
 # however, the installed PostgreSQL includes file /usr/pgsql-10/bin/psql.
@@ -154,8 +189,8 @@ RUN chown 1027270000:1027270000 /var/run/postgresql
 # must be be overwritten to use /usr/pgsql-10/bin/psql.
 # Additionally, as the OpenShift Origin container user does not exist in the
 # system, running psql without specifying a user results in error "local user
-# with ID 1027270000 does not exist". For this reason, a wrapper script must be
-# created to run psql as user "default" by default.
+# with ID <OPENSHIFT_ORIGIN_USER_ID> does not exist". For this reason, a wrapper
+# script must be created to run psql as user "default" by default.
 RUN echo -e '#!/bin/bash\n\n/usr/pgsql-10/bin/psql -U default "${@}"\n' \
       >/usr/bin/psql
 
@@ -164,7 +199,7 @@ RUN echo -e '#!/bin/bash\n\n/usr/pgsql-10/bin/psql -U default "${@}"\n' \
 # ============================================
 
 # Set the default user for the image.
-USER 1027270000
+USER $OPENSHIFT_ORIGIN_USER_ID
 
 # Specify the ports the final image will expose.
 # (Uncomment if the service for this container will be exposed.)
