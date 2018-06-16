@@ -71,9 +71,8 @@ with support for geographic objects" \
 #   `--build-arg OPENSHIFT_ORIGIN_USER_ID=<id>`, pushed to Docker Hub and used
 #   to invoke a new application.
 # 
-#   Note that the user OpenShift Origin pods run as is consistent across builds
-#   and new applications but does change across datacenters (possibly across
-#   nodes?).
+#   Note that the user OpenShift Origin pods run as is the same across a
+#   project.
 
 # NOTE ON THE DEFAULT USER CREATED BY THE BASE CENTOS7 IMAGE:
 #   The base-centos7 image creates a default user with name "default" and ID
