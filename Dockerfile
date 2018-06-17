@@ -24,7 +24,7 @@ RUN pgdgRpmUrl='https://yum.postgresql.org/10/redhat/rhel-7-x86_64/' && \
       yum -y install postgresql10 postgresql10-server postgis23_10
 
 # ============================================
-#   Set up the image
+#   Set up the base compoents of the image
 # ============================================
 
 # Important: This section is placed after setting up the system and installing
@@ -39,168 +39,193 @@ ENV POSTGIS_VERSION=2.3
 LABEL io.k8s.description="An object-relational database management system \
 with support for geographic objects" \
       io.k8s.display-name="PostgreSQL 10/PostGIS" \
-      # Uncomment this if the service for this container will be exposed.
+      # Uncomment this if the service for the application that will run this
+      # image will be exposed.
       # io.openshift.expose-services="8080:http" \
       io.openshift.tags="builder,sql,postgresql,postgis"
 
-# IMPORTANT NOTE ON OPENSHIFT ORIGIN USER:
-#   On OpenShift Origin, this image runs as a user created by OpenShift Origin
-#   rather than the one set in this Dockerfile. The ID of this user is long
-#   (e.g. 1027270000, 1003330000). In order to sccessfully run the image built
-#   by this Dockerfile on OpenShift Origin, the correct user ID must be assigned
-#   to argument variable OPENSHIFT_ORIGIN_USER_ID in this Dockerfile.
+# Note on building to run on OpenShift Origin:
+#   In order to sccessfully run the image built by this Dockerfile on OpenShift
+#   Origin, the ID of the user OpenShift Origin will runs the image as must be
+#   assigned to argument variable OPENSHIFT_ORIGIN_USER_ID.
 # 
-#   If the OpenShift pod that ran the image built by this Dockerfile ran
-#   successfully, the ID of the user it ran as matched the value of argument
-#   variable OPENSHIFT_ORIGIN_USER_ID and nothing needs to be done. If it failed
-#   to run, it will have have a status like "CrashLoopBackOff" or possibly
-#   "Error" because it was unable to access a file in /var/lib/postgres/data
-#   (likely postgresql.conf) (this will be shown in the logs) as the user it ran
-#   as did not have permission to.
+#   To get this ID, a new OpenShift application must be created with the image
+#   must be built by this packaging library using any OpenShift Origin using ID
+#   and a S2I source repository containing a run script that prints the output
+#   of the user it ran as (this can be done with command `id -u`). Then, the
+#   logs of the pod that ran the application must be checked. (The complete
+#   command to do this can be found at
+#   https://hub.docker.com/r/adrianbartyczak/openshift-postgresql-10-postgis/.)
 # 
-#   To get this user ID, an OpenShift application must be created with an image
-#   built by this Dockerfile and a S2I source repository that includes a run
-#   script which prints the output of command `id -u`. (The command to do this
-#   simply invokes a new application using the respective base S2I scripts
-#   repository for this project. This command can be found at
-#   https://hub.docker.com/r/adrianbartyczak/openshift-postgresql-10-postgis/).
-#   Once the application has been created, the output of command `id -u` should
-#   be checked for in the logs of the pod. This output is the ID of the user
-#   the OpenShift pod ran as. The image built by the packaging library of this
-#   Dockerfile must then be rebuilt with option
-#   `--build-arg OPENSHIFT_ORIGIN_USER_ID=<id>`, pushed to Docker Hub and used
-#   to invoke a new application.
+#   The image built by this Dockerfile must then be rebuilt with the ID assigned
+#   to argument variable OPENSHIFT_ORIGIN_USER_ID. (This can be done via option
+#   `--build-arg OPENSHIFT_ORIGIN_USER_ID=<id>`.)
 # 
-#   Note that the user OpenShift Origin pods run as is the same across a
+#   Note that the user OpenShift Origin runs images as is the same across a
 #   project.
 
-# NOTE ON THE DEFAULT USER CREATED BY THE BASE CENTOS7 IMAGE:
+# Note on the default user created by the base centos7 image:
 #   The base-centos7 image creates a default user with name "default" and ID
-#   1001 but it can only be used by a container of this image when it is
-#   run with Docker. The entry for this user in /etc/passwd is the following:
+#   1001 but it cannot be used in the container of the image built by this
+#   Dockerfile in OpenShift Origin. The entry for this user in /etc/passwd is
+#   the following:
 #       default:x:1001:0:Default Application User:/opt/app-root/src:/sbin/nologin
 #   To maintain run consistency between Docker and OpenShift Origin, this
-#   Dockerfile runs the container as user with ID assigned to argument variable
-#   OPENSHIFT_ORIGIN_USER_ID.
+#   Dockerfile sets up the image to run as a user with ID assigned to argument
+#   variable OPENSHIFT_ORIGIN_USER_ID.
 
-# Set the OpenShift Origin User ID default value.
 ARG OPENSHIFT_ORIGIN_USER_ID=1027270000
-
-# ============================================
-#   Add OpenShift S2I build scripts to the image (just for reference; see note)
-# ============================================
-
-# Copy the S2I scripts to /usr/libexec/s2i which is the location set for scripts
-# in openshift/base-centos7 as io.openshift.s2i.scripts-url label.
-# COPY ./.s2i/bin/ /usr/libexec/s2i
-
-# Set the default CMD to print the usage of the image when it is run with
-# "docker run".
-# CMD ["/usr/libexec/s2i/usage"]
-
-# NOTE ON COPYING S2I SCRIPTS TO /usr/libexec/s2i:
-#   The COPY command above does not make the image ready-to-run on OpenShift
-#   Origin without specifying a S2I source repository. When S2I source files are
-#   copied to /usr/libexec/s2i and an application is created without a S2I
-#   source repository (i.e. just the image itself), the S2I build does not run
-#   the "run" script, exits right away and runs the "usage" script (if one is
-#   specified with the CMD command). When S2I source files are copied to
-#   /usr/libexec/s2i and a new application is created with a S2I source
-#   repository, however, the S2I source repository overrides the S2I source
-#   files in /usr/libexec/s2i. Therefore, it is uncertain what the purpose of
-#   copying S2I source files to /usr/libexec/s2i is as a S2I source repsoitory
-#   must always be provided anyways.
-
-# ============================================
-#   Set up the user files and directories for the container
-# ============================================
-
-# Make user OPENSHIFT_ORIGIN_USER_ID own /opt/app-root.
-RUN chown -R $OPENSHIFT_ORIGIN_USER_ID:$OPENSHIFT_ORIGIN_USER_ID /opt/app-root
 
 # ============================================
 #   Set up PostgreSQL
 # ============================================
 
-# Manually create directory /var/lib/postgres and make it owned by user
-# "postgres" because the initdb binary must be run as user "postgres" (per
-# PostgreSQL rules) and therefore will not have the permissions needed to create
-# directory /var/lib/postgres.
-RUN mkdir -p /var/lib/postgres && chown postgres:postgres /var/lib/postgres
+# Manually create directory /var/lib/postgres and make it be owned by a user
+# other than root. This is for the reason that the initdb executable must be
+# executed by a user other than root.
+RUN mkdir -p /var/lib/postgres && chown 1001:1001 /var/lib/postgres
 
-# The PostgreSQL initialization (via the init binary) and other PostgreSQL
-# operations requiring write permissions on postgres directories must be run as
-# user "postgres".
-USER postgres
+# The user that owns the server process must have write permissions on
+# /var/run/postgresql so the server can create a UNIX socket file for binding
+# the address it will listen on.
+RUN chown -R 1001:1001 /var/run/postgresql
 
-# Initialize the PostgreSQL database. Note: This must be done in the Dockerfile
-# rather than an S2I assembly script because the initdb binary must be run as
-# "postgres" and the S2I assembly script runs as the default user.
+# Switch to user 1001 because the initdb executable must be run "as the user
+# that will own the server process, because the server needs to have access
+# to the files and directories that initdb creates" (PostgreSQL documentation)
+# and because the PostgreSQL server will be started to set up databases for the
+# image to run on OpenShift Origin, once again requiring the process to be owned
+# by the user that owns the data directory.
+USER 1001
+
+# Initialize PostgreSQL. Note: This cannot be done in an OpenShift S2I assembly
+# script (unless it has root access) because PostgreSQL databases must be set
+# up for the image in the image build because only the image build has
+# permission to change ownerships on files and directories that will be accessed
+# by the PostgreSQL server and the initdb executable must of course be executed
+# before then.
+# Note: initdb creates a PostgreSQL role with the name of the system user it was
+# executed as (in this case "default").
 RUN /usr/pgsql-10/bin/initdb --locale en_US.UTF-8 -E UTF8 -D \
       /var/lib/postgres/data
 
-# Configure PostgreSQL to allow access from all IPv4 addresses. Note: This step
-# must be done after running initdb.
-# RUN echo "host    all             all             0.0.0.0/0               md5" \
-#       >>/var/lib/postgres/data/pg_hba.conf
-
-# Temporarily start the postgresql server and create (1) a database used as a
-# template for creating postgis enabled databases and (2) a database and role
-# for connecting to the server as the default user.
+# Temporarily start the PostgreSQL server and create (1) a database used as a
+# template for creating PostGIS enabled databases and (2) the default database
+# that will be connected to by the default PostgreSQL role.
 RUN /usr/pgsql-10/bin/pg_ctl -D /var/lib/postgres/data -w start && \
       createdb template_postgis -E UTF-8 && \
       psql -d template_postgis -c 'CREATE EXTENSION postgis' && \
       psql -d template_postgis -c 'CREATE EXTENSION pgcrypto' && \
       psql -d template_postgis -c 'CREATE EXTENSION "uuid-ossp"' && \
       \
-      # The database role "default" must be created because when psql is run,
-      # PostgreSQL uses the name of the system user to connect to the database
-      # and if a role with the same name does not exist, it will throw an error
-      # which reads "FATAL:  role "default" does not exist".
-      createuser default --superuser && \
-      \
-      # Additionally, create database "default" because if psql is run without
-      # specifying a database, PostgreSQL will use the name of the system user
-      # as the name of the default database to connect to, which will likely not
-      # exist.
+      # Manually create database "default". The reason for this is based on the
+      # fact that OpenShift Origin runs an image as a user created by it. When
+      # the psql executable is executed, it uses the name of the system user as
+      # the name of the PostgreSQL role to connect as. If a role with this name
+      # does not exist, PostgreSQL will show error "FATAL:  role
+      # "<system_user_name>" does not exist". Furthermore, if in the uncommon
+      # case the user executing the psql executable does not exist in the
+      # operating system, PostgreSQL will show error "local user with ID
+      # <id_of_system_user> does not exist". The user OpenShift Origin runs the
+      # image as of course does not exist in the system and therefore has no
+      # name. As a result, this Dockerfile instructs the image build invoked
+      # with it to create a "psql" wrapper script (at the bottom of the next
+      # section) that always connects as role "default". As the default role
+      # used to connect as is "default" and psql uses the name of the role used
+      # to connect as-as the name of the default database to connect to,
+      # database "default" is created. (Note: Database "default" is created with
+      # the PostGIS template database to illustrate the use of the PostGIS
+      # template database).
       createdb default --owner=default --template='template_postgis' && \
       \
       /usr/pgsql-10/bin/pg_ctl -D /var/lib/postgres/data stop
 
+# Configure PostgreSQL to allow access from all IPv4 addresses. Note: This step
+# must be done after PostgreSQL has been initialized.
+# RUN echo "host    all             all             0.0.0.0/0               md5" \
+#       >>/var/lib/postgres/data/pg_hba.conf
+
+# ============================================
+#   Set up the PostgreSQL-related components of the image to successfully run it
+#   on OpenShift Origin
+# ============================================
+
 USER root
 
-# The user that runs the PostgreSQL server must be the owner of
-# /var/lib/postgres/data. This is for the reason of having permissions to write
-# to files in the directory.
+# The user that runs the PostgreSQL server must be the owner of the data
+# directory to access files in it.
 RUN chown -R $OPENSHIFT_ORIGIN_USER_ID:$OPENSHIFT_ORIGIN_USER_ID \
-			/var/lib/postgres/data
+      /var/lib/postgres/data
 
-# In order for PostgreSQL to bind addresses when the server is started by the
-# default user, the default user must have write permissions on
-# /var/run/postgresql.
+# The ownership of /var/run/postgresql must be change for the user OpenShift
+# Origin will run the image built by this Dockerfile as for the same reason
+# it was changed for the "default" user in the previous section.
 RUN chown $OPENSHIFT_ORIGIN_USER_ID:$OPENSHIFT_ORIGIN_USER_ID \
-			/var/run/postgresql
+      /var/run/postgresql
 
 # For some reason, the base centos7 images includes binary /usr/bin/psql,
 # however, the installed PostgreSQL includes file /usr/pgsql-10/bin/psql.
 # Running "psql" runs /usr/bin/psql which does not use the same version as the 
 # installed PostgreSQL package, resulting in a warning message. Therefore, it
 # must be be overwritten to use /usr/pgsql-10/bin/psql.
-# Additionally, as the OpenShift Origin container user does not exist in the
-# system, running psql without specifying a user results in error "local user
-# with ID <OPENSHIFT_ORIGIN_USER_ID> does not exist". For this reason, a wrapper
-# script must be created to run psql as user "default" by default.
-RUN echo -e '#!/bin/bash\n\n/usr/pgsql-10/bin/psql -U default "${@}"\n' \
-      >/usr/bin/psql
+# Additionally, as the user OpenShift Origin will run the image built by this
+# Dockerfile does not exist in the system, running psql without specifying a
+# user results in error "local user with ID <OPENSHIFT_ORIGIN_USER_ID> does not
+# exist". For this reason, a wrapper script must be created to run psql as a
+# default role.
+RUN printf '\
+#!/bin/bash\n\
+\n\
+/usr/pgsql-10/bin/psql -U default "${@}"\n\
+\n\
+' >/usr/bin/psql
 
 # ============================================
-#   Set up the final components of the container
+#   Set up other components of the image for running it on OpenShift Origin
 # ============================================
 
-# Set the default user for the image.
+# Make user OPENSHIFT_ORIGIN_USER_ID own /opt/app-root.
+RUN chown -R $OPENSHIFT_ORIGIN_USER_ID:$OPENSHIFT_ORIGIN_USER_ID /opt/app-root
+
+# ============================================
+#   Set up the remaining components of the image
+# ============================================
+
+# Set the default user for the image. Note: This is only for running the image
+# built by this Dockerfile as a plain Docker container and not with an OpenShift
+# application as the user OpenShift Origin run images is a user created by the
+# pod that runs the application.
 USER $OPENSHIFT_ORIGIN_USER_ID
 
 # Specify the ports the final image will expose.
-# (Uncomment if the service for this container will be exposed.)
+# (Uncomment this if the service for the application that will run this image
+# will be exposed.)
 # EXPOSE 8080
+
+# ============================================
+#   Add OpenShift S2I build scripts to the image so it can be built using the
+#   OpenShift S2I tool with S2I source files included in it
+#   (Just for reference; see note)
+# ============================================
+
+# Copy the S2I scripts to /usr/libexec/s2i which is the location set for scripts
+# in openshift/base-centos7 as io.openshift.s2i.scripts-url label.
+# COPY ./.s2i/bin/ /usr/libexec/s2i
+
+# Set the default CMD to print the usage of the S2I built image when it is run
+# with "docker run".
+# CMD ["/usr/libexec/s2i/usage"]
+
+# Note on using /usr/libexec/s2i for S2I source files:
+#   If the image built by this Dockerfile is built as an OpenShift S2I image,
+#   using /usr/libexec/s2i for S2I source files is an alternative to using
+#   a S2I source files repository. Note that if it is used, the container
+#   of the S2I built image will execute only the script specified in the CMD
+#   instruction and exit.
+# 
+#   Both the /usr/libexec/s2i directory and a S2I source files repository can
+#   be used however. In this case, a S2I source files repository will override
+#   the S2I /usr/libexec/s2i source files directory. This has the advantage of
+#   building the image built by this Dockerfile as an S2I built image with or
+#   without specifying a S2I source files repository.
 
