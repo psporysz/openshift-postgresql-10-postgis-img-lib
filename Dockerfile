@@ -9,7 +9,7 @@
 FROM openshift/base-centos7
 
 # ============================================
-#   Set up the system and install PostgreSQL and PostGIS
+#   Set up the system
 # ============================================
 
 # Enable the EPEL repository as it is needed by the dependecies of PostGIS.
@@ -18,13 +18,17 @@ RUN yum -y install epel-release
 # compromised.
 RUN rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-7
 
+# ============================================
+#   Install PostgreSQL and PostGIS
+# ============================================
+
 RUN pgdgRpmUrl='https://yum.postgresql.org/10/redhat/rhel-7-x86_64/' && \
       pgdgRpmUrl+='pgdg-centos10-10-2.noarch.rpm' && \
       rpm -Uvh "${pgdgRpmUrl}" && \
       yum -y install postgresql10 postgresql10-server postgis23_10
 
 # ============================================
-#   Set up the base compoents of the image
+#   Set up the base components of the image
 # ============================================
 
 # Important: This section is placed after setting up the system and installing
@@ -43,6 +47,10 @@ with support for geographic objects" \
       # image will be exposed.
       # io.openshift.expose-services="8080:http" \
       io.openshift.tags="builder,sql,postgresql,postgis"
+
+# ============================================
+#   Set up the components of the image for running it on OpenShift Origin
+# ============================================
 
 # Note on building to run on OpenShift Origin:
 #   In order to sccessfully run the image built by this Dockerfile on OpenShift
@@ -64,6 +72,8 @@ with support for geographic objects" \
 #   Note that the user OpenShift Origin runs images as is the same across a
 #   project.
 
+ARG OPENSHIFT_ORIGIN_USER_ID=1027270000
+
 # Note on the default user created by the base centos7 image:
 #   The base-centos7 image creates a default user with name "default" and ID
 #   1001 but it cannot be used in the container of the image built by this
@@ -73,8 +83,6 @@ with support for geographic objects" \
 #   To maintain run consistency between Docker and OpenShift Origin, this
 #   Dockerfile sets up the image to run as a user with ID assigned to argument
 #   variable OPENSHIFT_ORIGIN_USER_ID.
-
-ARG OPENSHIFT_ORIGIN_USER_ID=1027270000
 
 # ============================================
 #   Set up PostgreSQL
@@ -99,11 +107,11 @@ RUN chown -R 1001:1001 /var/run/postgresql
 USER 1001
 
 # Initialize PostgreSQL. Note: This cannot be done in an OpenShift S2I assembly
-# script (unless it has root access) because PostgreSQL databases must be set
-# up for the image in the image build because only the image build has
-# permission to change ownerships on files and directories that will be accessed
-# by the PostgreSQL server and the initdb executable must of course be executed
-# before then.
+# script (unless the user it is run as has root access) because PostgreSQL
+# databases must be set up for the image in the image build because only the
+# image build has permission to change ownerships on files and directories that
+# will be accessed by the PostgreSQL server and the initdb executable must of
+# course be executed before then.
 # Note: initdb creates a PostgreSQL role with the name of the system user it was
 # executed as (in this case "default").
 RUN /usr/pgsql-10/bin/initdb --locale en_US.UTF-8 -E UTF8 -D \
@@ -181,7 +189,7 @@ RUN printf '\
 ' >/usr/bin/psql
 
 # ============================================
-#   Set up other components of the image for running it on OpenShift Origin
+#   Set up other components of the image for OpenShift Origin
 # ============================================
 
 # Make user OPENSHIFT_ORIGIN_USER_ID own /opt/app-root.
