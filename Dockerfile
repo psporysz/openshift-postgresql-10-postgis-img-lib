@@ -28,7 +28,7 @@ RUN pgdgRpmUrl='https://yum.postgresql.org/10/redhat/rhel-7-x86_64/' && \
       yum -y install postgresql10 postgresql10-server postgis23_10
 
 # ============================================
-#   Set up the base components of the image
+#   Set up the the base components of the image
 # ============================================
 
 # Important: This section is placed after setting up the system and installing
@@ -42,14 +42,14 @@ ENV POSTGIS_VERSION=2.3
 # Set labels used in OpenShift to describe the builder images.
 LABEL io.k8s.description="An object-relational database management system \
 with support for geographic objects" \
-      io.k8s.display-name="PostgreSQL 10/PostGIS" \
+      io.k8s.display-name="PostgreSQL 10 extended with PostGIS" \
       # Uncomment this if the service for the application that will run this
       # image will be exposed.
       # io.openshift.expose-services="8080:http" \
       io.openshift.tags="builder,sql,postgresql,postgis"
 
 # ============================================
-#   Set up the components of the image for running it on OpenShift Origin
+#   Set up the components of the image needed to run it on OpenShift Origin
 # ============================================
 
 # Note on building to run on OpenShift Origin:
@@ -80,9 +80,9 @@ ARG OPENSHIFT_ORIGIN_USER_ID=1027270000
 #   Dockerfile in OpenShift Origin. The entry for this user in /etc/passwd is
 #   the following:
 #       default:x:1001:0:Default Application User:/opt/app-root/src:/sbin/nologin
-#   To maintain run consistency between Docker and OpenShift Origin, this
-#   Dockerfile sets up the image to run as a user with ID assigned to argument
-#   variable OPENSHIFT_ORIGIN_USER_ID.
+
+# Make user OPENSHIFT_ORIGIN_USER_ID own /opt/app-root.
+RUN chown -R $OPENSHIFT_ORIGIN_USER_ID:$OPENSHIFT_ORIGIN_USER_ID /opt/app-root
 
 # ============================================
 #   Set up PostgreSQL
@@ -154,8 +154,8 @@ RUN /usr/pgsql-10/bin/pg_ctl -D /var/lib/postgres/data -w start && \
 #       >>/var/lib/postgres/data/pg_hba.conf
 
 # ============================================
-#   Set up the PostgreSQL-related components of the image to successfully run it
-#   on OpenShift Origin
+#   Set up the PostgreSQL-related components of the image required to run the
+#   PostgreSQL server in the container of the image run on OpenShift Origin
 # ============================================
 
 USER root
@@ -189,20 +189,15 @@ RUN printf '\
 ' >/usr/bin/psql
 
 # ============================================
-#   Set up other components of the image for OpenShift Origin
-# ============================================
-
-# Make user OPENSHIFT_ORIGIN_USER_ID own /opt/app-root.
-RUN chown -R $OPENSHIFT_ORIGIN_USER_ID:$OPENSHIFT_ORIGIN_USER_ID /opt/app-root
-
-# ============================================
 #   Set up the remaining components of the image
 # ============================================
 
-# Set the default user for the image. Note: This is only for running the image
-# built by this Dockerfile as a plain Docker container and not with an OpenShift
+# Set the default user for the image. This is only for running the image built
+# by this Dockerfile as a plain Docker container and not with an OpenShift
 # application as the user OpenShift Origin run images is a user created by the
-# pod that runs the application.
+# pod that runs the application. Note: To maintain run consistency between
+# Docker and OpenShift Origin, this Dockerfile instructs the image to run as a
+# user with ID assigned to argument variable OPENSHIFT_ORIGIN_USER_ID.
 USER $OPENSHIFT_ORIGIN_USER_ID
 
 # Specify the ports the final image will expose.
