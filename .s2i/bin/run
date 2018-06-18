@@ -1,0 +1,24 @@
+#!/bin/bash -e
+# 
+# File:
+#   run
+# 
+# Description:
+#   The base S2I run script for image
+#   adrianbartyczak/openshift-postgresql-10-postgis.
+# 
+#   For more information refer to the documentation:
+#   https://github.com/openshift/source-to-image/blob/master/docs/builder_image.md
+# 
+# Notes:
+#   This script runs as a user created by the OpenShift Origin pod that ran the
+#   image of the application.
+# 
+
+# Print the ID of the user OpenShift Origin is running the image as. This is
+# needed in case the container fails to run because the user the image was set
+# up to run as was not the user OpenShift continer ran the image as.
+printf 'Running as user %s\n' "$(id -u)"
+
+exec /usr/pgsql-10/bin/postgres -D /var/lib/postgres/data
+

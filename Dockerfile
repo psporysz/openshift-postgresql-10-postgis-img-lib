@@ -181,12 +181,12 @@ RUN chown $OPENSHIFT_ORIGIN_USER_ID:$OPENSHIFT_ORIGIN_USER_ID \
 # user results in error "local user with ID <OPENSHIFT_ORIGIN_USER_ID> does not
 # exist". For this reason, a wrapper script must be created to run psql as a
 # default role.
-RUN printf '\
-#!/bin/bash\n\
-\n\
-/usr/pgsql-10/bin/psql -U default "${@}"\n\
-\n\
-' >/usr/bin/psql
+# RUN printf '\
+# #!/bin/bash\n\
+# \n\
+# /usr/pgsql-10/bin/psql -U default "${@}"\n\
+# \n\
+# ' >/usr/bin/psql
 
 # ============================================
 #   Set up the remaining components of the image
@@ -213,22 +213,15 @@ USER $OPENSHIFT_ORIGIN_USER_ID
 
 # Copy the S2I scripts to /usr/libexec/s2i which is the location set for scripts
 # in openshift/base-centos7 as io.openshift.s2i.scripts-url label.
-# COPY ./.s2i/bin/ /usr/libexec/s2i
+COPY ./.s2i/bin/ /usr/libexec/s2i
 
-# Set the default CMD to print the usage of the S2I built image when it is run
-# with "docker run".
-# CMD ["/usr/libexec/s2i/usage"]
+# Execute the script to run the image built by this Dockerfile when it is used
+# with a new OpenShift application.
+CMD ["/usr/libexec/s2i/run"]
 
 # Note on using /usr/libexec/s2i for S2I source files:
-#   If the image built by this Dockerfile is built as an OpenShift S2I image,
-#   using /usr/libexec/s2i for S2I source files is an alternative to using
-#   a S2I source files repository. Note that if it is used, the container
-#   of the S2I built image will execute only the script specified in the CMD
-#   instruction and exit.
-# 
-#   Both the /usr/libexec/s2i directory and a S2I source files repository can
-#   be used however. In this case, a S2I source files repository will override
-#   the S2I /usr/libexec/s2i source files directory. This has the advantage of
-#   building the image built by this Dockerfile as an S2I built image with or
-#   without specifying a S2I source files repository.
+#   Using /usr/libexec/s2i to store S2I source files for an S2I build is an
+#   alternative to using a S2I source repository. If both the /usr/libexec/s2i
+#   directory and a S2I source repository are used with a new, the S2I source
+#   repository will override the S2I source files in /usr/libexec/s2i.
 

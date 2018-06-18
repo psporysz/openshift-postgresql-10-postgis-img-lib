@@ -1,0 +1,33 @@
+#!/bin/bash
+# 
+# File:
+#   assemble
+# 
+# Description:
+#   The base S2I assemble script for image
+#   adrianbartyczak/openshift-postgresql-10-postgis.
+# 
+#   For more information refer to the documentation:
+#   https://github.com/openshift/source-to-image/blob/master/docs/builder_image.md
+# 
+# Notes:
+#   This script is run as the user instructed by the image build.
+# 
+
+# Print the usage if this script is executed with flag "-h". Note: This is only
+# used if the S2I source files for the image used with this S2I assemble script
+# are copied to /usr/libexec/s2i. (See note in the Dockerfile of the image this
+# S2I assemble script is for.)
+if [ -f /usr/libexec/s2i/usage ] && [ "${1}" = '-h' ]; then
+    exec /usr/libexec/s2i/usage
+fi
+
+echo -e '\n:: Assembling image...\n'
+
+# Add PostgreSQL initialization files to /opt/app-root/src and execute them
+# here.
+
+# If adding a custom postgresql.conf file, copy it to /var/lib/postgres/data.
+
+echo -e ':: Finished assembling image...\n'
+
