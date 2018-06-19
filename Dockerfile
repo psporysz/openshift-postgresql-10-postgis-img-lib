@@ -176,17 +176,28 @@ RUN chown $OPENSHIFT_ORIGIN_USER_ID:$OPENSHIFT_ORIGIN_USER_ID \
 # Running "psql" runs /usr/bin/psql which does not use the same version as the 
 # installed PostgreSQL package, resulting in a warning message. Therefore, it
 # must be be overwritten to use /usr/pgsql-10/bin/psql.
-# Additionally, as the user OpenShift Origin will run the image built by this
-# Dockerfile does not exist in the system, running psql without specifying a
-# user results in error "local user with ID <OPENSHIFT_ORIGIN_USER_ID> does not
-# exist". For this reason, a wrapper script must be created to run psql as a
-# default role.
-# RUN printf '\
-# #!/bin/bash\n\
-# \n\
-# /usr/pgsql-10/bin/psql -U default "${@}"\n\
-# \n\
-# ' >/usr/bin/psql
+RUN ln -sf /usr/pgsql-10/bin/psql /usr/bin/psql
+
+# Add the user OpenShift Origin will run the image built by this Dockerfile to
+# the system. This is required because PostgreSQL executables, such as psql and
+# createdb, use the name of the system user that executed one as the name of the
+# role to connect to the server with. As the user OpenShift Origin runs the
+# image built by this Dockerfile does not exist in the system, PostgreSQL prints
+# error "local user with ID <OPENSHIFT_ORIGIN_USER_ID> does not exist."
+RUN userdel default && \
+      groupadd default && \
+      adduser default -u $OPENSHIFT_ORIGIN_USER_ID -g default --no-log-init
+
+# Note: To minimize layers, adding the user OpenShift Origin will run the image
+#       built by this Dockerfile to the system (done in the last instruction of
+#       this section) can be done before manually creating and changing the
+#       ownership of directory /var/lib/postgres (done in the first instruction
+#       of the previous section). This would remove the first two RUN
+#       instructions of this section and has the advantage of allowing
+#       PostgreSQL to be initialized in an S2I run script. Since the image built
+#       by this Dockerfile has to be rebuilt anyways to be set up to run as the
+#       user OpenShift Origin will run the image as and for referencing reasons,
+#       this is not done.
 
 # ============================================
 #   Set up the remaining components of the image
