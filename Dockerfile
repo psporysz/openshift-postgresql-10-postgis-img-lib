@@ -146,6 +146,10 @@ RUN /usr/pgsql-10/bin/pg_ctl -D /var/lib/postgres/data -w start && \
       # template database).
       createdb default --owner=default --template='template_postgis' && \
       \
+      # Create role/user "postgres" as it is should exist and is often used when
+      # setting up databases and other components of PostgreSQL.
+      createuser postgres --superuser && \
+      \
       /usr/pgsql-10/bin/pg_ctl -D /var/lib/postgres/data stop
 
 # Configure PostgreSQL to allow access from all IPv4 addresses. Note: This step
