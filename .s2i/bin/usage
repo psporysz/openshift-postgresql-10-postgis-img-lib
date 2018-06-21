@@ -9,36 +9,70 @@
 # 
 
 cat <<EOF
-This is a PostgreSQL 10 extended with PostGIS image for OpenShift Origin.
+This is the usage information for a PostGIS extended PostgreSQL 10 image for
+OpenShift Origin.
 
-It can be found at
-https://hub.docker.com/r/adrianbartyczak/openshift-postgresql-10-postgis/.
+This image can be found at
+    https://hub.docker.com/r/adrianbartyczak/openshift-postgresql-10-postgis/
+and its packaging library can be found at
+    https://github.com/adrianbartyczak/openshift-postgresql-10-postgis-img-lib
 
-Its packaging library can be found at
-https://github.com/adrianbartyczak/openshift-postgresql-10-postgis-img-lib.
+This usage information is divided into sections based on an image built with
+Docker and an image built with the OpenShift Source-to-image tool (found at
+https://github.com/openshift/source-to-image). It is beneficial to understand
+that using the OpenShift Source-to-image tool adds a paradigm to how an
+S2I-ready image (an image containing S2I source files) built with Docker is run
+as an OpenShift application image. It builds an S2I-ready image ready-to-run as
+an OpenShift application image with Docker. In comparison, a plain Docker
+S2I-ready image can be run as an OpenShift application image only on OpenShift
+Origin.
 
-Build:
-  To build the image, change to the directory of the packaging library of this
-  image and run the following command:
+Build the plain Docker image:
+  Note: Running the plain Docker image will require manually starting the
+        PostgreSQL server inside the resulting container (see section "Run the
+        plain Docker image" for more information).
+
+  To build the image as a plain Docker image, change to the directory of its
+  packaging library and run the following command:
 
       docker build --build-arg OPENSHIFT_ORIGIN_USER_ID=<id> -t \
-            <image_name>:<image_tag> .
+            <docker_image_name>:<docker_image_tag> .
 
-          Note: To get the correct OpenShift Origin user ID, follow the
-                instructions provided in the README.md of the packaging library
-                repository. If the image will be run as a plain Docker
-                container, this build argument can be excluded.
+          Note: If the image will not be used with an OpenShift Origin
+                application, the build argument can be excluded.
+          Note: To get the correct OpenShift Origin user ID, build the image
+                without the build argument or using any user ID, run the
+                resulting image as an OpenShift Origin application and check the
+                logs of the pod that ran the application.
 
-Run as a non-OpenShift application:
-  After the image is built, it can be run as a plain Docker container with the
-  following command:
+Build the OpenShift S2I image:
+  To build the image as an OpenShift Source-To-Image (S2I) image, do the
+  following:
 
-      docker run -t -d <image_name>:<image_tag> bash
+    1. Install the OpenShift S2I tool if not already installed.
 
-          Note: As an S2I source files repository containing a "run" script to
-                start the PostgreSQL server is not being used, the server must
-                be started manually. To start it, run one of the following two
-                commands inside the container:
+    2. Build the image as a plain Docker image if not already built.
+
+    3. Run the following command:
+
+           s2i build \
+                <s2i_source_repository> \
+                <docker_image_name>:<docker_image_tag> \
+                <s2i_image_name>:<s2i_image_tag>
+
+              Note: A S2I source repository is required with the s2i build
+                    command and can be created from the S2I source files
+                    provided in the packaging library. Warning: It will override
+                    the S2I source files in the image.
+
+Run the plain Docker image:
+  To run the plain Docker image, run the following command:
+
+      docker run -t -d <docker_image_name>:<docker_image_tag> bash
+
+          Note: The PostgreSQL server must be started manually as the image was
+                not built as an OpenShift S2I image. To start it, run one of the
+                following two commands inside the resulting container:
 
                     1. /usr/pgsql-10/bin/pg_ctl -D /var/lib/postgres/data -l \
                              /var/lib/postgres/data/server.log start
@@ -46,56 +80,18 @@ Run as a non-OpenShift application:
                     2. /usr/pgsql-10/bin/postgres -D /var/lib/postgres/data \
                              >logfile 2>&1 &
 
-Run as an OpenShift application:
-  This section explains how to run the built image as an OpenShift application
-  with the OpenShift S2I tool.
+Run the OpenShift S2I image:
+  To run the OpenShift S2I image, run the following command:
 
-  To run the image as an OpenShift application with the OpenShift S2I tool, a
-  S2I source files repository containing a "run" script that starts the
-  PostgreSQL server must be created. Such a repository has been pre-created for
-  this image and can be found at
-  https://github.com/adrianbartyczak/openshift-postgresql-10-postgis-img-s2i. 
+      docker run -d <s2i_image_name>:<s2i_image_tag>
 
-  An image can be run as an OpenShift application with the OpenShift S2I tool in
-  one of two ways:
-
-    1. Building a new image with an already built image and an S2I source files
-       repository containing a "run" script that starts the main program with
-       the OpenShift Source-To-Image tool (found at
-       https://github.com/openshift/source-to-image) and running it as a plain
-       Docker image.
-
-    2. Creating a new application with an already built image and an S2I source
-       files repository containing a "run" script that starts the main program
-       on the OpenShift Origin server.
-
-  To run the image as an OpenShift application with the OpenShift S2I tool as
-  a plain Docker container, run the following two commands:
-
-      1. s2i build \
-               <s2i_source_files_repository_(can_be_the_pre-created_one_for_this_image)> \
-               <docker_built_image_name>:<docker_built_image_tag> \
-               <new_image_name>:<new_image_tag>
-
-      2. docker run <new_image_name>:<new_image_tag>
-
-             Note: When successful, the container will run in the current shell
-                   and print the output of the PostgreSQL server.
-             Note: To run the containerin the background, add option '-d'.
-
-  To run the image as an OpenShift application with the OpenShift S2I tool on
-  the OpenShift Origin server, run the following command:
+Run the plain Docker image as an OpenShift S2I image:
+  The only way to run the plain Docker image as an OpenShift S2I image is to use
+  it with a new application. To invoke a new application with it, run the
+  following command:
 
       oc new-app \
-            <docker_built_image_name>:<docker_built_image_tag>~\
-  <s2i_source_files_repository_(can_be_the_pre-created_one_for_this_image)> \
+            <docker_image_name>:<docker_image_tag> \
             --name=<app_name>
-
-          Note: If this application is being created on a remote OpenShift
-                Origin server, the image must exist in a remote Docker registry.
-                Additionally, if the image exists in a registry other than
-                Docker Hub, the URL of the registry may have to be provided when
-                specifying the image (e.g.
-                registry.access.example.com/<user_or_org>/<image_name>)
 EOF
 
