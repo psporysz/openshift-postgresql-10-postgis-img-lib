@@ -152,10 +152,19 @@ RUN /usr/pgsql-10/bin/pg_ctl -D /var/lib/postgres/data -w start && \
       \
       /usr/pgsql-10/bin/pg_ctl -D /var/lib/postgres/data stop
 
-# Configure PostgreSQL to allow access from all IPv4 addresses. Note: This step
-# must be done after PostgreSQL has been initialized.
-# RUN echo "host    all             all             0.0.0.0/0               md5" \
-#       >>/var/lib/postgres/data/pg_hba.conf
+# Configure PostgreSQL to listen on all IP addresses. This is required if the
+# PostgreSQL server will be run inside a Kubernetes container and will be
+# connected to from outside of it. This is because the endpoints IP address of
+# the Kubernetes service of the Kubernetes pod running the container that will
+# be connecting to the PostgreSQL server is unknown initially.
+RUN sed -i "s/#\(listen_addresses = '\)\([^']\+\)/\1*/" \
+          /var/lib/postgres/data/postgresql.conf
+
+# Configure PostgreSQL to allow connection access from all IPv4 addresses. This
+# is required for the same reason PostgreSQL must be configured to listen on all
+# IP addresses. Note: Use "md5" to require a password for the user connecting to
+# the server and "trust" otherwise.
+RUN echo "host  all  all 0.0.0.0/0 trust" >>/var/lib/postgres/data/pg_hba.conf
 
 # ============================================
 #   Set up the PostgreSQL-related components of the image required to run the
