@@ -215,10 +215,9 @@ RUN userdel default && \
 # user with ID assigned to argument variable OPENSHIFT_ORIGIN_USER_ID.
 USER $OPENSHIFT_ORIGIN_USER_ID
 
-# Specify the ports the final image will expose.
-# (Uncomment this if the service for the application that will run this image
-# will be exposed.)
-# EXPOSE 8080
+# Expose port 5432 so the PostgreSQL server can be connected through it from
+# outside the OpenShift pod of the container running it.
+EXPOSE 5432
 
 # ============================================
 #   Add OpenShift S2I build scripts to the image so it can be built using the
