@@ -27,6 +27,9 @@ RUN pgdgRpmUrl='https://yum.postgresql.org/10/redhat/rhel-7-x86_64/' && \
       rpm -Uvh "${pgdgRpmUrl}" && \
       yum -y install postgresql10 postgresql10-server postgis23_10
 
+# Clean all yum cache files to make the image smaller.
+RUN yum clean all
+
 # ============================================
 #   Set up the the base components of the image
 # ============================================
