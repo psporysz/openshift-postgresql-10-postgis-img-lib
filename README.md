@@ -5,23 +5,27 @@ This is the Docker packaging library for image [adrianbartyczak/openshift-postgr
 
 ## Build
 
-Change to the directory of this packaging library and build it with the following command:
+Change to the directory of this packaging library and run the following command:
 
     docker build --build-arg OPENSHIFT_ORIGIN_USER_ID=<id> -t <image_name>:<image_tag> .
 
 ### Getting the OpenShift Origin user ID
 
-1. Create a new application with an image built by this packaging library using any OpenShift Origin user ID. *A command to do this can be found at the provided link above.*
+1. Build this packaging library with any OpenShift Origin user ID.
 
-2. Check the logs of the pod that ran the application.
+2. Invoke a new application with the built image.
 
-## Note on S2I source files
+*Note: A command to accomplish the first two steps can be found at the provided link above.*
 
-The image built by this packaging library is built with S2I source files used when an S2I image build is invoked.
+3. Check the logs of the pod that ran the application.
 
-They are overridden by an S2I source repository when one is used with an S2I image build.
+## Note on included S2I source files
 
-To create an S2I source repositry for this image, simply copy directory .s2i/ to a new repository.
+The image built by this packaging library is built with S2I source files. *These S2I source files are used in an S2I image build.*
+
+If an S2I source repository is used with an S2I image build invoked with the image, the S2I source files in the image will be overridden.
+
+To create an S2I source repository with the correct S2I source files for the image built by this packaging library for an S2I image build invoked with the image built by this packaging library, simply copy the *.s2i/* directory to a new repository.
 
 ## Usage
 
