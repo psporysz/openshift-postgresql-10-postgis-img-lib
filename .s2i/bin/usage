@@ -20,19 +20,23 @@ and its packaging library can be found at
 This usage information is divided into sections based on an image built with
 Docker and an image built with the OpenShift Source-to-image tool (found at
 https://github.com/openshift/source-to-image). It is beneficial to understand
-that using the OpenShift Source-to-image tool adds a paradigm to how an
-S2I-ready image (an image containing S2I source files) built with Docker is run
-as an OpenShift application image. It builds an S2I-ready image ready-to-run as
-an OpenShift application image with Docker. In comparison, a plain Docker
-S2I-ready image can be run as an OpenShift application image only on OpenShift
-Origin.
+that the OpenShift Source-to-image tool adds a paradigm to how an S2I-ready
+image (an image containing S2I source files) built with Docker is run as an
+OpenShift application image. The OpenShift S2I tool builds the same image
+OpenShift Origin builds when a new application is invoked in it with a plain
+Docker image. This image runs the S2I source files included in the plain Docker
+image or from an S2I source repository built with the plain Docker image. As a
+result, an S2I image built with the OpenShift S2I tool can be run mostly as an
+OpenShift application image with the "docker run" command. (Note: Running an S2I
+image with the "docker run" command will not run the assembly script).
 
 Build the plain Docker image:
+
   Note: Running the plain Docker image will require manually starting the
         PostgreSQL server inside the resulting container (see section "Run the
         plain Docker image" for more information).
 
-  To build the image as a plain Docker image, change to the directory of its
+  To build the image as a plain Docker image, change to the directory of the
   packaging library and run the following command:
 
       docker build --build-arg OPENSHIFT_ORIGIN_USER_ID=<id> -t \
@@ -46,6 +50,7 @@ Build the plain Docker image:
                 logs of the pod that ran the application.
 
 Build the OpenShift S2I image:
+
   To build the image as an OpenShift Source-To-Image (S2I) image, do the
   following:
 
@@ -60,12 +65,14 @@ Build the OpenShift S2I image:
                 <docker_image_name>:<docker_image_tag> \
                 <s2i_image_name>:<s2i_image_tag>
 
-              Note: A S2I source repository is required with the s2i build
-                    command and can be created from the S2I source files
-                    provided in the packaging library. Warning: It will override
-                    the S2I source files in the image.
+               Note: An S2I source repository is required with the s2i build
+                     command. Once can be created simply by copying the S2I source
+                     files provided in the packaging library of this image to a
+                     new repository. Warning: The S2I source repository will
+                     override the S2I source files in the image.
 
 Run the plain Docker image:
+
   To run the plain Docker image, run the following command:
 
       docker run -t -d <docker_image_name>:<docker_image_tag> bash
@@ -81,14 +88,16 @@ Run the plain Docker image:
                              >logfile 2>&1 &
 
 Run the OpenShift S2I image:
+
   To run the OpenShift S2I image, run the following command:
 
       docker run -d <s2i_image_name>:<s2i_image_tag>
 
+
 Run the plain Docker image as an OpenShift S2I image:
-  The only way to run the plain Docker image as an OpenShift S2I image is to use
-  it with a new application. To invoke a new application with it, run the
-  following command:
+
+  The only way to run the plain Docker image as an OpenShift S2I image is to
+  invoke a new application with it. This can be done with the following command:
 
       oc new-app \
             <docker_image_name>:<docker_image_tag> \
