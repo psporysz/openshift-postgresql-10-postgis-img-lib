@@ -14,6 +14,7 @@ FROM openshift/base-centos7
 
 # Enable the EPEL repository as it is needed by the dependecies of PostGIS.
 RUN yum -y install epel-release
+
 # Import the EPEL GPG-key to ensure that package integrity has not been
 # compromised.
 RUN rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-7
@@ -227,23 +228,15 @@ USER $OPENSHIFT_ORIGIN_USER_ID
 # outside the OpenShift pod of the container running it.
 EXPOSE 5432
 
-# ============================================
-#   Add OpenShift S2I build scripts to the image so it can be built using the
-#   OpenShift S2I tool with S2I source files included in it
-#   (Just for reference; see note)
-# ============================================
+# Add OpenShift S2I source files to the image built by this Dockerfile so an S2I
+# image built from it can be run without a separate S2I source repository. Note:
+# Creating an S2I image with the image built by this Dockerfile and an S2I
+# source repository will cause the S2I source repository to override the S2I
+# source files in the S2I image built from the image built by this Dockerfile.
+# Note: Directory /usr/libexec/s2i is the location defined for S2I source files
+# in the OpenShift base CentOS7 images as label io.openshift.s2i.scripts-url.
+COPY ./.s2i/bin/ /usr/libexec/s2i
 
-# Copy the S2I scripts to /usr/libexec/s2i which is the location set for scripts
-# in openshift/base-centos7 as io.openshift.s2i.scripts-url label.
-COPY ./.s2i/bin/ /usr/libexec/s2i/
-
-# Execute the script to run the image built by this Dockerfile when it is used
-# with a new OpenShift application.
+# Execute the script to run when the image built by this Dockerfile is run.
 CMD ["/usr/libexec/s2i/run"]
-
-# Note on using /usr/libexec/s2i for S2I source files:
-#   Using /usr/libexec/s2i to store S2I source files for an S2I build is an
-#   alternative to using a S2I source repository. If both the /usr/libexec/s2i
-#   directory and a S2I source repository are used with a new, the S2I source
-#   repository will override the S2I source files in /usr/libexec/s2i.
 
