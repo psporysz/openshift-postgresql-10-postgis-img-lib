@@ -18,6 +18,11 @@ RUN yum -y install epel-release
 # compromised.
 RUN rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-7
 
+# As the system of base CentOS7 images is not updated, the system must be
+# updated. (Uncomment this if needed, however, it will make the uncompressed
+# image about 750Mb larger.)
+# RUN yum -y update
+
 # ============================================
 #   Install PostgreSQL and PostGIS
 # ============================================
@@ -38,7 +43,8 @@ RUN yum clean all
 #            PostgreSQL and PostGIS so that changes to the image setup do not
 #            cause the layers in the first section to be re-created.
 
-# Inform about software versions being used inside the builder.
+# Create environment variables to inform about software versions being used
+# inside the builder.
 ENV POSTGRESQL_VERSION=10.4
 ENV POSTGIS_VERSION=2.3
 
