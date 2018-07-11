@@ -188,8 +188,11 @@ RUN chown $OPENSHIFT_ORIGIN_USER_ID:$OPENSHIFT_ORIGIN_USER_ID \
 # however, the installed PostgreSQL includes file /usr/pgsql-10/bin/psql.
 # Running "psql" runs /usr/bin/psql which does not use the same version as the 
 # installed PostgreSQL package, resulting in a warning message. Therefore, it
-# must be be overwritten to use /usr/pgsql-10/bin/psql.
-RUN ln -sf /usr/pgsql-10/bin/psql /usr/bin/psql
+# and other PostgreSQL binaries must be be overwritten to use the binaries in
+# /usr/pgsql-10/bin/.
+RUN ln -sf /usr/pgsql-10/bin/psql /usr/bin/psql && \
+    ln -sf /usr/pgsql-10/bin/pg_dump /usr/bin/pg_dump && \
+    ln -sf /usr/pgsql-10/bin/pg_restore /usr/bin/pg_restore && \
 
 # Add the user OpenShift Origin will run the image built by this Dockerfile to
 # the system. This is required because PostgreSQL executables, such as psql and
