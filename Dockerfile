@@ -8,6 +8,8 @@
 
 FROM openshift/base-centos7
 
+VOLUME /var/lib/postgres/data
+
 # ============================================
 #   Set up the system
 # ============================================
@@ -230,8 +232,6 @@ USER $OPENSHIFT_ORIGIN_USER_ID
 # Expose port 5432 so the PostgreSQL server can be connected through it from
 # outside the OpenShift pod of the container running it.
 EXPOSE 5432
-
-VOLUME /var/lib/postgres/data
 
 # Add OpenShift S2I source files to the image built by this Dockerfile so an S2I
 # image built from it can be run without a separate S2I source repository. Note:
