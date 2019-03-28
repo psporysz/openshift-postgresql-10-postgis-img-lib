@@ -8,6 +8,8 @@
 
 FROM openshift/base-centos7
 
+VOLUME /var/lib/postgres/data
+
 # ============================================
 #   Set up the system
 # ============================================
